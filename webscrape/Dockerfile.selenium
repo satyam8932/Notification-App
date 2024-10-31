@@ -1,0 +1,12 @@
+# Dockerfile for Selenium Worker
+FROM python:3.9-slim
+
+RUN apt-get update && \
+    apt-get install -y chromium chromium-driver
+
+WORKDIR /app
+COPY . /app
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["python", "jobs/job_worker.py"]
