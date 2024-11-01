@@ -55,109 +55,146 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
     missing_filters = []  # List to track any unavailable filters
 
     try:
-        driver.get(URL)
+        if job_data.get("pageUrl") is None:
+            driver.get(URL)
+            # Click the Advanced Search button
+            search_extra_button = driver.find_element(By.ID, "search-extra-button")
+            search_extra_button.click()
+
+            # Scroll to bottom
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            
+            # Scroll back up to the top
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(2)
         
-        # Click the Advanced Search button
-        search_extra_button = driver.find_element(By.ID, "search-extra-button")
-        search_extra_button.click()
+            # Check and select each filter if available, using appropriate By method where necessary
+            if (job_data.get("brand") is not None) and (not select_option_if_exists(driver, "for-make", job_data.get("brand"))):
+                missing_filters.append("Brand: " + job_data.get("brand", "Unknown"))
 
-        # Scroll to bottom
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        
-        # Scroll back up to the top
-        driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(2)
-    
-        # Check and select each filter if available, using appropriate By method where necessary
-        if (job_data.get("brand") is not None) and (not select_option_if_exists(driver, "for-make", job_data.get("brand"))):
-            missing_filters.append("Brand: " + job_data.get("brand", "Unknown"))
+            if (job_data.get("model") is not None) and (not select_option_if_exists(driver, "for-model", job_data.get("model"))):
+                missing_filters.append("Model: " + job_data.get("model", "Unknown"))
 
-        if (job_data.get("model") is not None) and (not select_option_if_exists(driver, "for-model", job_data.get("model"))):
-            missing_filters.append("Model: " + job_data.get("model", "Unknown"))
+            if (job_data.get("yearStart") is not None) and (not select_option_if_exists(driver, "for-yearFrom", str(job_data.get("yearStart")))):
+                missing_filters.append("Year Start: " + str(job_data.get("yearStart", "Unknown")))
 
-        if (job_data.get("yearStart") is not None) and (not select_option_if_exists(driver, "for-yearFrom", str(job_data.get("yearStart")))):
-            missing_filters.append("Year Start: " + str(job_data.get("yearStart", "Unknown")))
+            if (job_data.get("yearEnd") is not None) and (not select_option_if_exists(driver, "widget[yearTo]", str(job_data.get("yearEnd")), by=By.NAME)):
+                missing_filters.append("Year End: " + str(job_data.get("yearEnd", "Unknown")))
 
-        if (job_data.get("yearEnd") is not None) and (not select_option_if_exists(driver, "widget[yearTo]", str(job_data.get("yearEnd")), by=By.NAME)):
-            missing_filters.append("Year End: " + str(job_data.get("yearEnd", "Unknown")))
+            if (job_data.get("fuelType") is not None) and (not select_option_if_exists(driver, "for-fuel", job_data.get("fuelType"))):
+                missing_filters.append("Fuel Type: " + job_data.get("fuelType", "Unknown"))
 
-        if (job_data.get("fuelType") is not None) and (not select_option_if_exists(driver, "for-fuel", job_data.get("fuelType"))):
-            missing_filters.append("Fuel Type: " + job_data.get("fuelType", "Unknown"))
+            if (job_data.get("transmission") is not None) and (not select_option_if_exists(driver, "for-gear", job_data.get("transmission"))):
+                missing_filters.append("Transmission: " + job_data.get("transmission", "Unknown"))
+            
+            # For Disassembled Cars there is no price range
+            if job_data.get("notificationType") != "disassembled_car":
+                if (job_data.get("priceFrom") is not None) and (not select_option_if_exists(driver, "for-priceFrom", str(job_data.get("priceFrom")))):
+                    missing_filters.append("Price From: " + job_data.get("priceFrom", "Unknown"))
 
-        if (job_data.get("transmission") is not None) and (not select_option_if_exists(driver, "for-gear", job_data.get("transmission"))):
-            missing_filters.append("Transmission: " + job_data.get("transmission", "Unknown"))
-        
-        # For Disassembled Cars there is no price range
-        if job_data.get("notificationType") != "disassembled_car":
-            if (job_data.get("priceFrom") is not None) and (not select_option_if_exists(driver, "for-priceFrom", str(job_data.get("priceFrom")))):
-                missing_filters.append("Price From: " + job_data.get("priceFrom", "Unknown"))
+                if (job_data.get("priceTo") is not None) and (not select_option_if_exists(driver, "widget[priceTo]", str(job_data.get("priceTo")), by=By.NAME)):
+                    missing_filters.append("Price To: " + job_data.get("priceTo", "Unknown"))
 
-            if (job_data.get("priceTo") is not None) and (not select_option_if_exists(driver, "widget[priceTo]", str(job_data.get("priceTo")), by=By.NAME)):
-                missing_filters.append("Price To: " + job_data.get("priceTo", "Unknown"))
+            if (job_data.get("color") is not None) and (not select_option_if_exists(driver, "for-color", job_data.get("color"))):
+                missing_filters.append("Color: " + job_data.get("color", "Unknown"))
 
-        if (job_data.get("color") is not None) and (not select_option_if_exists(driver, "for-color", job_data.get("color"))):
-            missing_filters.append("Color: " + job_data.get("color", "Unknown"))
+            if (job_data.get("bodyType") is not None) and (not select_option_if_exists(driver, "for-bodyType", job_data.get("bodyType"))):
+                missing_filters.append("Body Type: " + job_data.get("bodyType", "Unknown"))
 
-        if (job_data.get("bodyType") is not None) and (not select_option_if_exists(driver, "for-bodyType", job_data.get("bodyType"))):
-            missing_filters.append("Body Type: " + job_data.get("bodyType", "Unknown"))
+            if (job_data.get("origin") is not None) and (not select_option_if_exists(driver, "for-origin", job_data.get("origin"))):
+                missing_filters.append("Origin: " + job_data.get("origin", "Unknown"))
 
-        if (job_data.get("origin") is not None) and (not select_option_if_exists(driver, "for-origin", job_data.get("origin"))):
-            missing_filters.append("Origin: " + job_data.get("origin", "Unknown"))
+            # If any filters are missing, return a message and stop further processing
+            if missing_filters:
+                return {
+                    "status": "warning",
+                    "message": "The following filters are not available in the catalog:\n" + ", ".join(missing_filters)
+                }
 
-        # If any filters are missing, return a message and stop further processing
-        if missing_filters:
-            return {
-                "status": "warning",
-                "message": "The following filters are not available in the catalog:\n" + ", ".join(missing_filters)
-            }
+            # Click the search button
+            search_button = driver.find_element(By.ID, "search-button")
+            driver.execute_script("arguments[0].click();", search_button)
 
-        # Click the search button
-        search_button = driver.find_element(By.ID, "search-button")
-        driver.execute_script("arguments[0].click();", search_button)
-
-        # Check for "not available" message
-        try:
-            no_results_element = driver.find_element(By.CLASS_NAME, "search-not-found")
-            if no_results_element.is_displayed():
-                return {"status": "not_available", "message": "No listings found for the specified filters."}
-        except:
-            pass
-
-        # Extract car listings if available (first page only)
-        listings = []
-        newVehicleCount = 0
-        car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
-        for car in car_elements:
+            # Check for "not available" message
             try:
-                title = car.find_element(By.CSS_SELECTOR, "h2 a").text
-                price = car.find_element(By.CLASS_NAME, "price").text if car.find_elements(By.CLASS_NAME, "price") else None
-                details = car.find_element(By.CLASS_NAME, "details").text
-                car_url = car.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                image_url = car.find_element(By.CSS_SELECTOR, ".car-image img").get_attribute("src")
-                new_label = car.find_element(By.CSS_SELECTOR, ".label-new").text if car.find_elements(By.CSS_SELECTOR, ".label-new") else None
-                if new_label:
-                    newVehicleCount += 1
-                    
-                    listings.append({
-                        "title": title,
-                        "price": price,
-                        "details": details,
-                        "url": car_url,
-                        "image_url": image_url,
-                        "new_label": new_label
-                    })
-            except Exception as e:
-                print(f"Error parsing car listing: {e}")
+                no_results_element = driver.find_element(By.CLASS_NAME, "search-not-found")
+                if no_results_element.is_displayed():
+                    return {"status": "not_available", "message": "No listings found for the specified filters."}
+            except:
+                pass
 
-        if newVehicleCount > job_data.get("currentVehicleCount"):
-            return {
-                "status": "available",
-                "listings": listings,
-                "newVehicleCount": newVehicleCount,
-                "pageUrl": driver.current_url
-            }
+            # Extract car listings if available (first page only)
+            listings = []
+            newVehicleCount = 0
+            car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
+            for car in car_elements:
+                try:
+                    title = car.find_element(By.CSS_SELECTOR, "h2 a").text
+                    price = car.find_element(By.CLASS_NAME, "price").text if car.find_elements(By.CLASS_NAME, "price") else None
+                    details = car.find_element(By.CLASS_NAME, "details").text
+                    car_url = car.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+                    image_url = car.find_element(By.CSS_SELECTOR, ".car-image img").get_attribute("src")
+                    new_label = car.find_element(By.CSS_SELECTOR, ".label-new").text if car.find_elements(By.CSS_SELECTOR, ".label-new") else None
+                    if new_label:
+                        newVehicleCount += 1
+
+                        listings.append({
+                            "title": title,
+                            "price": price,
+                            "details": details,
+                            "url": car_url,
+                            "image_url": image_url,
+                            "new_label": new_label
+                        })
+                except Exception as e:
+                    print(f"Error parsing car listing: {e}")
+
+            if newVehicleCount > job_data.get("currentVehicleCount"):
+                return {
+                    "status": "available",
+                    "listings": listings,
+                    "newVehicleCount": newVehicleCount,
+                    "pageUrl": driver.current_url
+                }
+            else:
+                return {"status": "not_available", "message": "No new listings found for the specified filters."}
         else:
-            return {"status": "not_available", "message": "No new items found for the specified filters."}
+            # Extract car listings if available (first page only) from the existing page_url to prevent rescraping
+            driver.get(job_data.get("pageUrl"))
+            listings = []
+            newVehicleCount = 0
+            car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
+            for car in car_elements:
+                try:
+                    title = car.find_element(By.CSS_SELECTOR, "h2 a").text
+                    price = car.find_element(By.CLASS_NAME, "price").text if car.find_elements(By.CLASS_NAME, "price") else None
+                    details = car.find_element(By.CLASS_NAME, "details").text
+                    car_url = car.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+                    image_url = car.find_element(By.CSS_SELECTOR, ".car-image img").get_attribute("src")
+                    new_label = car.find_element(By.CSS_SELECTOR, ".label-new").text if car.find_elements(By.CSS_SELECTOR, ".label-new") else None
+                    if new_label:
+                        newVehicleCount += 1
+
+                        listings.append({
+                            "title": title,
+                            "price": price,
+                            "details": details,
+                            "url": car_url,
+                            "image_url": image_url,
+                            "new_label": new_label
+                        })
+                except Exception as e:
+                    print(f"Error parsing car listing: {e}")
+
+            if newVehicleCount > job_data.get("currentVehicleCount"):
+                return {
+                    "status": "available",
+                    "listings": listings,
+                    "newVehicleCount": newVehicleCount,
+                    "pageUrl": driver.current_url
+                }
+            else:
+                return {"status": "not_available", "message": "No new listings found for the specified filters."}
 
     finally:
         driver.quit()
@@ -196,8 +233,8 @@ if __name__ == "__main__":
         "color": "white",
         "bodyType":None,
         "origin": None,
-        "pageUrl": None,
-        "currentVehicleCount": 0
+        "pageUrl": "https://www.schadeautos.nl/en/search/damaged/passenger-cars+mercedes/1/1/53/0/0/0/1/0?color=29&p=-2023",
+        "currentVehicleCount": 6
     }
 
     results = scrape_starter(job_data)
