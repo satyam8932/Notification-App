@@ -218,24 +218,24 @@ def scrape_starter(job_data : dict) -> dict:
         results = scrape_cars(job_data, URLS["used_car"])
         return results
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    job_data = {
-        "notificationType": "damaged_car",
-        "brand": "Mercedes",
-        "model": None,
-        "yearStart": "1958",
-        "yearEnd": "2023",
-        "fuelType": None,
-        "transmission": None,
-        "priceFrom": None,
-        "priceTo": None,
-        "color": "white",
-        "bodyType":None,
-        "origin": None,
-        "pageUrl": "https://www.schadeautos.nl/en/search/damaged/passenger-cars+mercedes/1/1/53/0/0/0/1/0?color=29&p=-2023",
-        "currentVehicleCount": 6
-    }
+    # job_data = {
+    #     "notificationType": "damaged_car",
+    #     "brand": "Mercedes",
+    #     "model": None,
+    #     "yearStart": "1958",
+    #     "yearEnd": "2023",
+    #     "fuelType": None,
+    #     "transmission": None,
+    #     "priceFrom": None,
+    #     "priceTo": None,
+    #     "color": "white",
+    #     "bodyType":None,
+    #     "origin": None,
+    #     "pageUrl": "https://www.schadeautos.nl/en/search/damaged/passenger-cars+mercedes/1/1/53/0/0/0/1/0?color=29&p=-2023",
+    #     "currentVehicleCount": 6
+    # }
 
-    results = scrape_starter(job_data)
-    print(results)
+#     results = scrape_starter(job_data)
+#     print(results)

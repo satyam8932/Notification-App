@@ -4,11 +4,13 @@ services:
   fastapi:
     build:
       context: .
-      dockerfile: Dockerfile.fastapi  # Specify FastAPI Dockerfile
+      dockerfile: Dockerfile.fastapi
     ports:
       - "8000:8000"
     environment:
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_NAME=car_alerts  # Add this if used in config
 
   redis:
     image: "redis:alpine"
@@ -18,9 +20,11 @@ services:
   selenium_worker:
     build:
       context: .
-      dockerfile: Dockerfile.selenium  # Specify Selenium Worker Dockerfile
+      dockerfile: Dockerfile.selenium
     environment:
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_NAME=car_alerts  # Add this if used in config
     depends_on:
       - redis
     deploy:

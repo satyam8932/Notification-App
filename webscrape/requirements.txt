@@ -1,0 +1,7 @@
+fastapi==0.115.4
+pip-chill==1.0.3
+pysocks==1.7.1
+rq==2.0.0
+selenium==4.26.0
+uvicorn==0.32.0
+webdriver-manager==4.0.2
