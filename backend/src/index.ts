@@ -6,6 +6,7 @@ import Filter from './models/Filter';
 import Notification from './models/Notification';
 import authRoutes from './routes/authRoutes';
 import dotenv from 'dotenv';
+import listEndpoints from 'express-list-endpoints';
 dotenv.config();
 
 const app = express();
@@ -35,6 +36,12 @@ sequelize.sync()
   .then(() => {
     app.listen(PORT, () => {
       console.log('Server running on port 5000');
+
+      // Display all endpoints
+      const endpoints = listEndpoints(app);
+      endpoints.forEach((endpoint) => {
+        console.log(`${endpoint.methods.join(', ')} ${endpoint.path}`);
+      });
     });
   })
   .catch((err: Error) => {
