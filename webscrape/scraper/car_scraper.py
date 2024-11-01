@@ -9,10 +9,10 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Get the absolute path to the current script directory
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the full path to cookies.pkl for consent cookies
-COOKIES_PATH = os.path.join(BASE_DIR, "cookies.pkl")
+# COOKIES_PATH = os.path.join(BASE_DIR, "cookies.pkl")
 
 def get_selenium_driver():
     chrome_options = Options()
@@ -50,13 +50,12 @@ def select_option_if_exists(driver, element_identifier, value, by=By.ID, max_att
     print(f"Error selecting '{value}' for '{element_identifier}': Element not found within max attempts")
     return False
 
-def scrape_damaged_cars(job_data):
+def scrape_cars(job_data : dict, URL : str) -> dict:
     driver = get_selenium_driver()
-    base_url = "https://schadeautos.nl/en/damaged-car"
     missing_filters = []  # List to track any unavailable filters
 
     try:
-        driver.get(base_url)
+        driver.get(URL)
         
         # Click the Advanced Search button
         search_extra_button = driver.find_element(By.ID, "search-extra-button")
@@ -87,12 +86,14 @@ def scrape_damaged_cars(job_data):
 
         if (job_data.get("transmission") is not None) and (not select_option_if_exists(driver, "for-gear", job_data.get("transmission"))):
             missing_filters.append("Transmission: " + job_data.get("transmission", "Unknown"))
+        
+        # For Disassembled Cars there is no price range
+        if job_data.get("notificationType") != "disassembled_car":
+            if (job_data.get("priceFrom") is not None) and (not select_option_if_exists(driver, "for-priceFrom", str(job_data.get("priceFrom")))):
+                missing_filters.append("Price From: " + job_data.get("priceFrom", "Unknown"))
 
-        if (job_data.get("priceFrom") is not None) and (not select_option_if_exists(driver, "for-priceFrom", str(job_data.get("priceFrom")))):
-            missing_filters.append("Price From: " + job_data.get("priceFrom", "Unknown"))
-
-        if (job_data.get("priceTo") is not None) and (not select_option_if_exists(driver, "widget[priceTo]", str(job_data.get("priceTo")), by=By.NAME)):
-            missing_filters.append("Price To: " + job_data.get("priceTo", "Unknown"))
+            if (job_data.get("priceTo") is not None) and (not select_option_if_exists(driver, "widget[priceTo]", str(job_data.get("priceTo")), by=By.NAME)):
+                missing_filters.append("Price To: " + job_data.get("priceTo", "Unknown"))
 
         if (job_data.get("color") is not None) and (not select_option_if_exists(driver, "for-color", job_data.get("color"))):
             missing_filters.append("Color: " + job_data.get("color", "Unknown"))
@@ -112,7 +113,6 @@ def scrape_damaged_cars(job_data):
 
         # Click the search button
         search_button = driver.find_element(By.ID, "search-button")
-        # search_button.click()
         driver.execute_script("arguments[0].click();", search_button)
 
         # Check for "not available" message
@@ -125,49 +125,80 @@ def scrape_damaged_cars(job_data):
 
         # Extract car listings if available (first page only)
         listings = []
+        newVehicleCount = 0
         car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
         for car in car_elements:
             try:
                 title = car.find_element(By.CSS_SELECTOR, "h2 a").text
-                price = car.find_element(By.CLASS_NAME, "price").text
+                price = car.find_element(By.CLASS_NAME, "price").text if car.find_elements(By.CLASS_NAME, "price") else None
                 details = car.find_element(By.CLASS_NAME, "details").text
                 car_url = car.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                listings.append({
-                    "title": title,
-                    "price": price,
-                    "details": details,
-                    "url": car_url
-                })
+                image_url = car.find_element(By.CSS_SELECTOR, ".car-image img").get_attribute("src")
+                new_label = car.find_element(By.CSS_SELECTOR, ".label-new").text if car.find_elements(By.CSS_SELECTOR, ".label-new") else None
+                if new_label:
+                    newVehicleCount += 1
+                    
+                    listings.append({
+                        "title": title,
+                        "price": price,
+                        "details": details,
+                        "url": car_url,
+                        "image_url": image_url,
+                        "new_label": new_label
+                    })
             except Exception as e:
                 print(f"Error parsing car listing: {e}")
 
-        # Return the listings and current page URL
-        return {
-            "status": "available",
-            "listings": listings,
-            "page_url": driver.current_url
-        }
+        if newVehicleCount > job_data.get("currentVehicleCount"):
+            return {
+                "status": "available",
+                "listings": listings,
+                "newVehicleCount": newVehicleCount,
+                "pageUrl": driver.current_url
+            }
+        else:
+            return {"status": "not_available", "message": "No new items found for the specified filters."}
 
     finally:
         driver.quit()
 
+def scrape_starter(job_data : dict) -> dict:
+    URLS = {
+            "damaged_car": "https://www.schadeautos.nl/en/damaged-car",
+            "disassembled_car": "https://www.schadeautos.nl/en/salvage-car",
+            "used_car": "https://www.schadeautos.nl/en/occasion-passenger-cars",
+            }
+    
+    if job_data['notificationType'] == 'damaged_car':
+        results = scrape_cars(job_data, URLS["damaged_car"])
+        return results
+   
+    elif job_data['notificationType'] == 'disassembled_car':
+        results = scrape_cars(job_data, URLS["disassembled_car"])
+        return results
+
+    elif job_data['notificationType'] == 'used_car':
+        results = scrape_cars(job_data, URLS["used_car"])
+        return results
+
 if __name__ == "__main__":
-    # Sample job data to simulate a user's search filters
+    
     job_data = {
-        "brand": "Chevrolet",
-        "model": "Camaro",
-        "yearStart": "2010",
-        "yearEnd": "2022",
+        "notificationType": "damaged_car",
+        "brand": "Mercedes",
+        "model": None,
+        "yearStart": "1958",
+        "yearEnd": "2023",
         "fuelType": None,
-        "transmission": "automatic transmission",
+        "transmission": None,
         "priceFrom": None,
-        # "priceTo": "€ 7.000",
         "priceTo": None,
-        "color": None,
+        "color": "white",
         "bodyType":None,
-        "origin": "Netherlands"
+        "origin": None,
+        "pageUrl": None,
+        "currentVehicleCount": 0
     }
 
-    # Run the scraper function with the test job data
-    results = scrape_damaged_cars(job_data)
+    results = scrape_starter(job_data)
     print(results)
