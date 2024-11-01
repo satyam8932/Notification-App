@@ -1,12 +1,17 @@
 # utils.py
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 def send_notification(data):
-    webhook_url = "http://your-backend-url.com/notifications"  # Replace with actual backend URL
+    webhook_url = "https://3470pw9n-5000.inc1.devtunnels.ms/notification"
     headers = {"Content-Type": "application/json"}
-    
-    response = requests.post(webhook_url, json=data, headers=headers)
-    if response.status_code == 200:
-        print("Notification sent successfully")
-    else:
-        print(f"Failed to send notification: {response.status_code}")
+
+    try:
+        response = requests.post(webhook_url, json=data, headers=headers)
+        response.raise_for_status()
+        logger.info("Notification sent successfully")
+    except Exception as e:
+        logger.error(f"Failed to send notification: {e}")
+

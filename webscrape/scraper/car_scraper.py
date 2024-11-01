@@ -1,5 +1,6 @@
 import time
 import os
+import pickle
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
@@ -9,10 +10,27 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Get the absolute path to the current script directory
-# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the full path to cookies.pkl for consent cookies
-# COOKIES_PATH = os.path.join(BASE_DIR, "cookies.pkl")
+COOKIES_PATH = os.path.join(BASE_DIR, "cookies.pkl")
+
+def load_cookies(driver):
+    try:    
+        # Load cookies from the pickle file
+        with open(COOKIES_PATH, "rb") as file:
+            cookies = pickle.load(file)
+        
+        # Add each cookie to the driver
+        for cookie in cookies:
+            driver.add_cookie(cookie)
+        
+        # Refresh to apply cookies
+        driver.refresh()
+        print("Cookies loaded successfully")
+        return driver
+    except Exception as e:
+        print(f"Error loading cookies: {str(e)}")
 
 def get_selenium_driver():
     chrome_options = Options()
@@ -57,6 +75,7 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
     try:
         if job_data.get("pageUrl") is None:
             driver.get(URL)
+            load_cookies(driver)
             # Click the Advanced Search button
             search_extra_button = driver.find_element(By.ID, "search-extra-button")
             search_extra_button.click()
@@ -108,6 +127,7 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
             if missing_filters:
                 return {
                     "status": "warning",
+                    "userId": job_data.get("userId"),
                     "message": "The following filters are not available in the catalog:\n" + ", ".join(missing_filters)
                 }
 
@@ -119,7 +139,7 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
             try:
                 no_results_element = driver.find_element(By.CLASS_NAME, "search-not-found")
                 if no_results_element.is_displayed():
-                    return {"status": "not_available", "message": "No listings found for the specified filters."}
+                    return {"status": "not_available", "userId": job_data.get("userId"), "message": "No listings found for the specified filters."}
             except:
                 pass
 
@@ -152,15 +172,17 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
             if newVehicleCount > job_data.get("currentVehicleCount"):
                 return {
                     "status": "available",
+                    "userId": job_data.get("userId"),
                     "listings": listings,
                     "newVehicleCount": newVehicleCount,
                     "pageUrl": driver.current_url
                 }
             else:
-                return {"status": "not_available", "message": "No new listings found for the specified filters."}
+                return {"status": "not_available", "userId": job_data.get("userId"), "message": "No new listings found for the specified filters."}
         else:
             # Extract car listings if available (first page only) from the existing page_url to prevent rescraping
             driver.get(job_data.get("pageUrl"))
+            load_cookies(driver)
             listings = []
             newVehicleCount = 0
             car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
@@ -189,12 +211,13 @@ def scrape_cars(job_data : dict, URL : str) -> dict:
             if newVehicleCount > job_data.get("currentVehicleCount"):
                 return {
                     "status": "available",
+                    "userId": job_data.get("userId"),
                     "listings": listings,
                     "newVehicleCount": newVehicleCount,
                     "pageUrl": driver.current_url
                 }
             else:
-                return {"status": "not_available", "message": "No new listings found for the specified filters."}
+                return {"status": "not_available", "userId": job_data.get("userId"), "message": "No new listings found for the specified filters."}
 
     finally:
         driver.quit()
@@ -218,24 +241,24 @@ def scrape_starter(job_data : dict) -> dict:
         results = scrape_cars(job_data, URLS["used_car"])
         return results
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     
-    # job_data = {
-    #     "notificationType": "damaged_car",
-    #     "brand": "Mercedes",
-    #     "model": None,
-    #     "yearStart": "1958",
-    #     "yearEnd": "2023",
-    #     "fuelType": None,
-    #     "transmission": None,
-    #     "priceFrom": None,
-    #     "priceTo": None,
-    #     "color": "white",
-    #     "bodyType":None,
-    #     "origin": None,
-    #     "pageUrl": "https://www.schadeautos.nl/en/search/damaged/passenger-cars+mercedes/1/1/53/0/0/0/1/0?color=29&p=-2023",
-    #     "currentVehicleCount": 6
-    # }
+    job_data = {
+        "notificationType": "damaged_car",
+        "brand": "Mercedes",
+        "model": None,
+        "yearStart": "1958",
+        "yearEnd": "2023",
+        "fuelType": None,
+        "transmission": None,
+        "priceFrom": None,
+        "priceTo": None,
+        "color": "white",
+        "bodyType":None,
+        "origin": None,
+        "pageUrl": "https://www.schadeautos.nl/en/search/damaged/passenger-cars+mercedes/1/1/53/0/0/0/1/0?color=29&p=-2023",
+        "currentVehicleCount": 6
+    }
 
-#     results = scrape_starter(job_data)
-#     print(results)
+    results = scrape_starter(job_data)
+    print(results)

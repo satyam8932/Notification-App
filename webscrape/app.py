@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from redis import Redis
 from rq import Queue
+from rq.job import Job
 from jobs.job_worker import process_job  # Importing process_job directly
 import config
 
@@ -28,6 +29,7 @@ queue = Queue(config.QUEUE_NAME, connection=redis_conn)
 
 # Job request model
 class JobRequest(BaseModel):
+    userId: int
     notificationType: str
     brand: str
     model: str
@@ -48,8 +50,21 @@ async def submit_job(job: JobRequest):
     try:
         # Remove empty strings and replace with None
         job_data = {key: (value if value != "" else None) for key, value in job.dict().items()}
-        # Enqueue the job directly with the function
-        queue.enqueue(process_job, job_data)
-        return {"message": "Job added to queue successfully", "job_data": job_data}
+        # Enqueue the job directly with the function and capture the job instance
+        job = queue.enqueue(process_job, job_data)
+        return {"message": "Job added to queue successfully", "job_id": job.id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/delete-job/{job_id}")
+async def delete_job(job_id: str):
+    try:
+        # Fetch the job using the job ID
+        job = Job.fetch(job_id, connection=redis_conn)
+        
+        # Cancel the job
+        job.cancel()
+        
+        return {"message": "Job deleted successfully", "job_id": job_id}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Job with ID {job_id} not found or could not be deleted.")
