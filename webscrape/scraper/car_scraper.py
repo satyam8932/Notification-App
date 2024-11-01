@@ -1,6 +1,18 @@
-# scraper/car_scraper.py
+import time
+import os
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Get the absolute path to the current script directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the full path to cookies.pkl for consent cookies
+COOKIES_PATH = os.path.join(BASE_DIR, "cookies.pkl")
 
 def get_selenium_driver():
     chrome_options = Options()
@@ -8,17 +20,154 @@ def get_selenium_driver():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-software-rasterizer")
+
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     return driver
 
-def scrape_cars(job_data):
+def select_option_if_exists(driver, element_identifier, value, by=By.ID, max_attempts=4):
+    attempt = 0
+    delay = 0.3  # Start with a short delay
+    
+    while attempt < max_attempts:
+        try:
+            # Try locating the element within a short wait time
+            select_element = WebDriverWait(driver, delay).until(EC.presence_of_element_located((by, element_identifier)))
+            select = Select(select_element)
+            
+            # Check if the value exists in the dropdown options
+            options = [option.text for option in select.options]
+            if value in options:
+                select.select_by_visible_text(value)
+                return True  # Return True if selection was successful
+        
+        except Exception:
+            attempt += 1
+            delay += 0.3
+
+    print(f"Error selecting '{value}' for '{element_identifier}': Element not found within max attempts")
+    return False
+
+def scrape_damaged_cars(job_data):
     driver = get_selenium_driver()
+    base_url = "https://schadeautos.nl/en/damaged-car"
+    missing_filters = []  # List to track any unavailable filters
+
     try:
-        # Implement scraping logic based on `job_data`
-        driver.get("https://example.com/cars")
-        # Add interactions based on job_data filters
-        # Parse results
-        listings = []  # Fill this with parsed data
-        return listings
+        driver.get(base_url)
+        
+        # Click the Advanced Search button
+        search_extra_button = driver.find_element(By.ID, "search-extra-button")
+        search_extra_button.click()
+
+        # Scroll to bottom
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        
+        # Scroll back up to the top
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(2)
+    
+        # Check and select each filter if available, using appropriate By method where necessary
+        if (job_data.get("brand") is not None) and (not select_option_if_exists(driver, "for-make", job_data.get("brand"))):
+            missing_filters.append("Brand: " + job_data.get("brand", "Unknown"))
+
+        if (job_data.get("model") is not None) and (not select_option_if_exists(driver, "for-model", job_data.get("model"))):
+            missing_filters.append("Model: " + job_data.get("model", "Unknown"))
+
+        if (job_data.get("yearStart") is not None) and (not select_option_if_exists(driver, "for-yearFrom", str(job_data.get("yearStart")))):
+            missing_filters.append("Year Start: " + str(job_data.get("yearStart", "Unknown")))
+
+        if (job_data.get("yearEnd") is not None) and (not select_option_if_exists(driver, "widget[yearTo]", str(job_data.get("yearEnd")), by=By.NAME)):
+            missing_filters.append("Year End: " + str(job_data.get("yearEnd", "Unknown")))
+
+        if (job_data.get("fuelType") is not None) and (not select_option_if_exists(driver, "for-fuel", job_data.get("fuelType"))):
+            missing_filters.append("Fuel Type: " + job_data.get("fuelType", "Unknown"))
+
+        if (job_data.get("transmission") is not None) and (not select_option_if_exists(driver, "for-gear", job_data.get("transmission"))):
+            missing_filters.append("Transmission: " + job_data.get("transmission", "Unknown"))
+
+        if (job_data.get("priceFrom") is not None) and (not select_option_if_exists(driver, "for-priceFrom", str(job_data.get("priceFrom")))):
+            missing_filters.append("Price From: " + job_data.get("priceFrom", "Unknown"))
+
+        if (job_data.get("priceTo") is not None) and (not select_option_if_exists(driver, "widget[priceTo]", str(job_data.get("priceTo")), by=By.NAME)):
+            missing_filters.append("Price To: " + job_data.get("priceTo", "Unknown"))
+
+        if (job_data.get("color") is not None) and (not select_option_if_exists(driver, "for-color", job_data.get("color"))):
+            missing_filters.append("Color: " + job_data.get("color", "Unknown"))
+
+        if (job_data.get("bodyType") is not None) and (not select_option_if_exists(driver, "for-bodyType", job_data.get("bodyType"))):
+            missing_filters.append("Body Type: " + job_data.get("bodyType", "Unknown"))
+
+        if (job_data.get("origin") is not None) and (not select_option_if_exists(driver, "for-origin", job_data.get("origin"))):
+            missing_filters.append("Origin: " + job_data.get("origin", "Unknown"))
+
+        # If any filters are missing, return a message and stop further processing
+        if missing_filters:
+            return {
+                "status": "warning",
+                "message": "The following filters are not available in the catalog:\n" + ", ".join(missing_filters)
+            }
+
+        # Click the search button
+        search_button = driver.find_element(By.ID, "search-button")
+        # search_button.click()
+        driver.execute_script("arguments[0].click();", search_button)
+
+        # Check for "not available" message
+        try:
+            no_results_element = driver.find_element(By.CLASS_NAME, "search-not-found")
+            if no_results_element.is_displayed():
+                return {"status": "not_available", "message": "No listings found for the specified filters."}
+        except:
+            pass
+
+        # Extract car listings if available (first page only)
+        listings = []
+        car_elements = driver.find_elements(By.CSS_SELECTOR, ".grid .flexitem.car")
+        for car in car_elements:
+            try:
+                title = car.find_element(By.CSS_SELECTOR, "h2 a").text
+                price = car.find_element(By.CLASS_NAME, "price").text
+                details = car.find_element(By.CLASS_NAME, "details").text
+                car_url = car.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+                listings.append({
+                    "title": title,
+                    "price": price,
+                    "details": details,
+                    "url": car_url
+                })
+            except Exception as e:
+                print(f"Error parsing car listing: {e}")
+
+        # Return the listings and current page URL
+        return {
+            "status": "available",
+            "listings": listings,
+            "page_url": driver.current_url
+        }
+
     finally:
         driver.quit()
+
+if __name__ == "__main__":
+    # Sample job data to simulate a user's search filters
+    job_data = {
+        "brand": "Chevrolet",
+        "model": "Camaro",
+        "yearStart": "2010",
+        "yearEnd": "2022",
+        "fuelType": None,
+        "transmission": "automatic transmission",
+        "priceFrom": None,
+        # "priceTo": "€ 7.000",
+        "priceTo": None,
+        "color": None,
+        "bodyType":None,
+        "origin": "Netherlands"
+    }
+
+    # Run the scraper function with the test job data
+    results = scrape_damaged_cars(job_data)
+    print(results)
