@@ -7,6 +7,9 @@ import Notification from './models/Notification';
 
 const app = express();
 
+// Middleware to parse JSON request bodies
+app.use(express.json());
+
 // Initialize the model schema
 User;
 Subscription;
@@ -16,6 +19,17 @@ Notification;
 // Basic route for testing
 app.get('/', (req, res) => {
   res.send('Welcome to the server!');
+});
+
+// Route to handle incoming notifications
+app.post('/notification', (req, res) => {
+  const notificationData = req.body;
+  console.log('Received notification:', notificationData);
+
+  // You can add further processing here, such as saving to the database or handling the notification data as needed.
+
+  // Send a response back to the sender
+  res.status(200).json({ message: 'Notification received successfully' });
 });
 
 // Sync Sequelize models and start the server

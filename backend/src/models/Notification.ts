@@ -6,6 +6,7 @@ import User from './User';
 interface NotificationAttributes {
   id: number;
   userId: number;
+  jobId: string;
   message: string;
   status: 'sent' | 'pending';
 }
@@ -15,6 +16,7 @@ interface NotificationCreationAttributes extends Optional<NotificationAttributes
 class Notification extends Model<NotificationAttributes, NotificationCreationAttributes> implements NotificationAttributes {
   public id!: number;
   public userId!: number;
+  public jobId!: string;
   public message!: string;
   public status!: 'sent' | 'pending';
 
@@ -38,6 +40,10 @@ Notification.init(
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
+    },
+    jobId: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     message: {
       type: DataTypes.STRING,
